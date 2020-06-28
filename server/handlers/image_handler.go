@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
+	"os"
 	"time"
 
 	uuid "github.com/satori/go.uuid"
@@ -52,10 +53,17 @@ func ImageHandler(data db.DataStorage, s3 awsmanager.S3Manager) func(http.Respon
 				return
 			}
 
-			for _, v := range images {
-				height, width, format, file := GetImageInfo(v)
+			for _, imageURL := range images {
+				height, width, format, path := GetImageInfo(imageURL)
 
 				if height >= 400 || width >= 400 {
+
+					file, err := os.Open(path)
+					if err != nil {
+						logs.Error("Request: %s, unable to open images: %v", RequestSummary(r), err)
+						return
+					}
+					defer file.Close()
 
 					logs.Info("S3 Upload Started")
 
@@ -82,9 +90,7 @@ func ImageHandler(data db.DataStorage, s3 awsmanager.S3Manager) func(http.Respon
 				}
 
 			}
-
 			defer res.Body.Close()
-
 		}
 
 		/*
