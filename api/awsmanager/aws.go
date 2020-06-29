@@ -3,13 +3,16 @@ package awsmanager
 import (
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"mime/multipart"
+	"net/http"
 	"os"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/rekognition"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/joho/godotenv"
@@ -19,6 +22,7 @@ import (
 type S3Manager struct {
 	Uploader        *s3manager.Uploader
 	Downloader      *s3manager.Downloader
+	Rekognition     *rekognition.Rekognition
 	Bucket          string
 	AccessKeyID     string
 	SecretAccessKey string
@@ -54,11 +58,12 @@ func (s *S3Manager) Init() (err error) {
 
 	s.Uploader = s3manager.NewUploader(sess)
 	s.Downloader = s3manager.NewDownloader(sess)
+	s.Rekognition = rekognition.New(sess, aws.NewConfig().WithRegion(s.Region))
 
 	return
 }
 
-func (s *S3Manager) Upload(file multipart.File, fileName string, categoryName string, extension string) (url string, err error) {
+func (s *S3Manager) Upload(file multipart.File, fileName string, extension string) (url string, err error) {
 
 	if fileName == "" {
 		return "", errors.New("fileName is required")
@@ -84,7 +89,7 @@ func (s *S3Manager) Upload(file multipart.File, fileName string, categoryName st
 		Body:        file,
 		Bucket:      aws.String(s.Bucket),
 		ContentType: aws.String(contentType),
-		Key:         aws.String(s.Keys + "/" + categoryName + "/" + fileName),
+		Key:         aws.String(s.Keys + "/" + fileName),
 	})
 
 	if err != nil {
@@ -116,4 +121,46 @@ func NewS3Manager() *S3Manager {
 	var s3 S3Manager
 	_ = s3.Init()
 	return &s3
+}
+
+func (s *S3Manager) Detect(url string) ([]string, error) {
+
+	// 画像ファイルを取得
+	image, err := http.Get(url)
+	if err != nil {
+		fmt.Println(err.Error())
+		return nil, err
+	}
+	defer image.Body.Close()
+
+	// 画像ファイルのデータを全て読み込み
+	bytes, err := ioutil.ReadAll(image.Body)
+	if err != nil {
+		fmt.Println(err.Error())
+		return nil, err
+	}
+
+	var maxLabels int64 = 2
+
+	params := &rekognition.DetectLabelsInput{
+		Image: &rekognition.Image{
+			Bytes: bytes,
+		},
+		MaxLabels: &maxLabels,
+	}
+
+	output, err := s.Rekognition.DetectLabels(params)
+	if err != nil {
+		fmt.Println(err.Error())
+		return nil, err
+	}
+
+	var labels []string
+
+	for _, label := range output.Labels {
+		labels = append(labels, *label.Name)
+		//fmt.Printf("ラベル名:%s 信頼度:%f\n", *label.Name, *label.Confidence)
+	}
+	return labels, nil
+
 }

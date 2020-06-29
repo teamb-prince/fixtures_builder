@@ -8,9 +8,8 @@ type Images struct {
 }
 
 type ImageRequest struct {
-	URL      []string `json:"url"`
-	Category string   `json:"category"`
-	UserID   string   `json:"user_id"`
+	URL    []string `json:"url"`
+	UserID string   `json:"user_id"`
 }
 
 type S3Image struct {

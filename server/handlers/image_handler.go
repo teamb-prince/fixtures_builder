@@ -28,7 +28,7 @@ func ImageHandler(data db.DataStorage, s3 awsmanager.S3Manager) func(http.Respon
 		var pinList []*view.Pin
 
 		urls := imageRequest.URL
-		category := imageRequest.Category
+		//category := imageRequest.Category
 		userID := imageRequest.UserID
 
 		for _, url := range urls {
@@ -67,11 +67,21 @@ func ImageHandler(data db.DataStorage, s3 awsmanager.S3Manager) func(http.Respon
 
 					logs.Info("S3 Upload Started")
 
-					s3Url, err := UploadImage(&s3, file, category, format)
+					s3Url, err := UploadImage(&s3, file, format)
 					if err != nil {
 						logs.Error("Request: %s, unable to upload images: %v", RequestSummary(r), err)
 						InternalServerError(w, r)
 						return
+					}
+
+					var labels []string
+
+					if format == "png" || format == "jpeg" {
+						labels, err = s3.Detect(s3Url)
+						if err != nil {
+							logs.Error("Request: %s, unable to detect images: %v", RequestSummary(r), err)
+							return
+						}
 					}
 
 					now := time.Now()
@@ -84,6 +94,7 @@ func ImageHandler(data db.DataStorage, s3 awsmanager.S3Manager) func(http.Respon
 						Title:       "hogehoge",
 						Description: "hogehoge",
 						UploadType:  "url",
+						Label:       labels,
 						CreatedAt:   &now,
 					}
 					pinList = append(pinList, pin)

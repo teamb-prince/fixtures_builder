@@ -137,11 +137,11 @@ func GetImages(baseURL string, res *http.Response) ([]string, error) {
 	return result, nil
 }
 
-func UploadImage(s3 *awsmanager.S3Manager, file multipart.File, category string, format string) (string, error) {
+func UploadImage(s3 *awsmanager.S3Manager, file multipart.File, format string) (string, error) {
 
 	filename := uuid.NewV4().String()
 
-	url, err := s3.Upload(file, filename, category, format)
+	url, err := s3.Upload(file, filename, format)
 	if err != nil {
 		logs.Error("%v", err)
 		return "", uploadImageError

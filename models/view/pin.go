@@ -14,5 +14,6 @@ type Pin struct {
 	ImageURL    string     `json:"image_url"`
 	Description string     `json:"description"`
 	UploadType  string     `json:"upload_type"`
+	Label       []string   `json:"label"`
 	CreatedAt   *time.Time `json:"created_at"`
 }
